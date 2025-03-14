@@ -49,7 +49,9 @@ def get_round_colours():
     median = (int_scores[1] + int_scores[2]) / 2
     median = round(median)
 
-    return round_colours, median
+    highest = int_scores[-1]
+
+    return round_colours, median, highest
 
 
 # Main Classes Start Here
@@ -177,6 +179,7 @@ class Play():
         self.round_colour_list = []
         self.all_scores_list = []
         self.all_medians_list = []
+        self.all_high_score_list = []
 
         # Start of GUI Creation
         self.play_box = Toplevel()
@@ -268,9 +271,12 @@ class Play():
         rounds_wanted = self.rounds_wanted.get()
 
         # Get round colours and median score...
-        self.round_colour_list, median = get_round_colours()
+        self.round_colour_list, median, highest = get_round_colours()
 
         self.target_score.set(median)
+        # Add median and high score to lsits for stats...
+        self.all_medians_list.append(median)
+        self.all_high_score_list.append(highest)
 
         # Configure heading & score to beat labels
         self.game_heading.config(text=f"Round {rounds_played} of {rounds_wanted}")
@@ -301,7 +307,6 @@ class Play():
         
         # Retrieve target score and compare with user score to find round result
         target = self.target_score.get()
-        self.all_medians_list.append(target)
 
         if score >= target:
             result_text = f"Success! {colour_name} earned you {score} points."
