@@ -175,10 +175,11 @@ class Play():
         self.rounds_wanted = IntVar()
         self.rounds_wanted.set(how_many)
 
+        self.rounds_won = IntVar()
+
         # Game Lists (Colours and Scores)
         self.round_colour_list = []
         self.all_scores_list = []
-        self.all_medians_list = []
         self.all_high_score_list = []
 
         # Start of GUI Creation
@@ -226,7 +227,7 @@ class Play():
             ["Colour D", self.colour_frame, partial(self.round_results, 3), med_font, None, gray, 1, 1, 12],
             ["Next Round", self.game_frame, self.new_round, large_font, white, "#0057d8", 5, None, 22],
             ["Hints", self.hints_stats_frame, self.to_hints, large_font, white, "#ff8000", 0, 0, 10],
-            ["Stats", self.hints_stats_frame, "", large_font, white, "#333333", 0, 1, 10],
+            ["Stats", self.hints_stats_frame, self.to_stats, large_font, white, "#333333", 0, 1, 10],
             ["End Game", self.game_frame, self.close_play, large_font, white, "#990000", 7, None, 22]
         ]
 
@@ -274,8 +275,7 @@ class Play():
         self.round_colour_list, median, highest = get_round_colours()
 
         self.target_score.set(median)
-        # Add median and high score to lsits for stats...
-        self.all_medians_list.append(median)
+        # Add median and high score to lists for stats...
         self.all_high_score_list.append(highest)
 
         # Configure heading & score to beat labels
@@ -312,6 +312,10 @@ class Play():
             result_text = f"Success! {colour_name} earned you {score} points."
             result_bg = "#82b366"
             self.all_scores_list.append(score)
+
+            rounds_won = self.rounds_won.get()
+            rounds_won += 1
+            self.rounds_won.set(rounds_won)
         else:
             result_text = f"Oops {colour_name} ({score}) is less than the target."
             result_bg = "#f8cecc"
@@ -343,6 +347,17 @@ class Play():
         Displays hints for playing game
         """
         DisplayHints(self)
+
+
+    def to_stats(self):
+        """
+        Retrieves everything we need to display the game / round statistics
+        """
+        # IMPORTANT: Retrieve # of rounds won as a number
+        rounds_won = self.rounds_won.get()
+        stats_bundle = [rounds_won, self.all_scores_list, self.all_high_score_list]
+
+        DisplayStats(self, stats_bundle)
 
 
 class DisplayHints():
@@ -405,6 +420,112 @@ class DisplayHints():
         # Put hints button back to normal
         partner.hints_button.config(state=NORMAL)
         self.hints_box.destroy()
+
+
+class DisplayStats():
+    """
+    Displays stats for Colour Quest Game
+    """
+
+    def __init__(self, partner, all_stats_info):
+        # Extract information from master list...
+        rounds_won = all_stats_info[0]
+        user_scores = all_stats_info[1]
+        high_scores = all_stats_info[2]
+
+        # Sort user scores to find high score...
+        user_scores.sort()
+
+        background = "#cce6ff"
+
+        # Makes new window seperate to main converter window
+        self.stats_box = Toplevel()
+
+        # Disable stats button when already open
+        partner.stats_button.config(state=DISABLED)
+
+        # If users press cross at top, closes stats and 'releases' stats button
+        self.stats_box.protocol('WM_DELETE_WINDOW',
+                               partial(self.close_stats, partner))
+
+        self.stats_frame = Frame(self.stats_box, width=300, bg=background)
+        self.stats_frame.grid()
+
+        # Maths to populate Stats dialogue...
+        rounds_played = len(user_scores)
+
+        success_rate = rounds_won / rounds_played * 100
+        total_score = sum(user_scores)
+        max_possible = sum(high_scores)
+
+        best_score = user_scores[-1]
+        average_score = total_score / rounds_played
+
+        # All label Strings
+        success_string = f"Success Rate: {rounds_won} / {rounds_played} ({success_rate:.2f}%)"
+
+        total_score_string = f"Total Score: {total_score}"
+        max_possible_string = f"Maximum Possible Score: {max_possible}"
+        best_score_string = f"Best Score: {best_score}"
+
+        # Custom Comment text and formatting
+        if total_score == max_possible:
+            comment_string = "Amazing! You got the Highest Possible Score!"
+            comment_colour = "#d5e8d4"
+        elif total_score == 0:
+            comment_string = "Oops - You've lost every round! You might want to look at the hints!"
+            comment_colour = "#ff0000"
+            best_score_string = f"Best Score: n/a"
+        else:
+            comment_string = ""
+            comment_colour = background
+
+        average_score_string = f"Average Score: {average_score:.0f}"
+
+        heading_font = ("Arial", "16", "bold")
+        normal_font = ("Arial", "14")
+        comment_font = ("Arial", "13")
+
+        # Label List (text | font | 'Sticky')
+        all_stats_strings = [
+            ["Statistics", heading_font, ""],
+            [success_string, normal_font, "W"],
+            [total_score_string, normal_font, "W"],
+            [max_possible_string, normal_font, "W"],
+            [comment_string, comment_font, "W"],
+            ["\nRounds Stats", heading_font, ""],
+            [best_score_string, normal_font, "W"],
+            [average_score_string, normal_font, "W"],
+        ]
+
+        # List to hold labels once they have been made
+        stats_labels_ref_list = []
+
+        # Loop through every item in label list to make label
+        for count, item in enumerate(all_stats_strings):
+            self.make_stats_label = Label(self.stats_frame, text=item[0], font=item[1],
+                                     anchor="w", justify="left", padx=30, pady=5, bg=background)
+            self.make_stats_label.grid(row=count, sticky=item[2], padx=10)
+            stats_labels_ref_list.append(self.make_stats_label)
+
+        # Configure comment label backgropund (for all won / all lost)
+        self.stats_comment_label = stats_labels_ref_list[4]
+        self.stats_comment_label.config(fg=comment_colour)
+
+        self.dismiss_button = Button(self.stats_frame,
+                                     font=("Arial", "16", "bold"),
+                                     text="Dismiss", bg="#cc6600",
+                                     fg="#ffffff", width=20,
+                                     command=partial(self.close_stats, partner))
+        self.dismiss_button.grid(row=8, padx=10, pady=10)
+
+    def close_stats(self, partner):
+        """
+        Closes stats dialogue box (and enables stats button)
+        """
+        # Put stats button back to normal
+        partner.stats_button.config(state=NORMAL)
+        self.stats_box.destroy()
 
 
 # Main Routine
